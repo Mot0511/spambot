@@ -24,9 +24,9 @@ async def show_channels(message: Message, channel_service):
     if not channels:
         await message.answer("Список пуст.")
         return
-    for ch in channels:
+    for i, ch in enumerate(channels):
         await message.answer(
-            f"{ch['id']}. {ch['title']} — {ch['link']}",
+            f"{i+1}. {ch['title']} — {ch['link']}",
             reply_markup=channel_delete_kb(ch["id"]),
         )
 

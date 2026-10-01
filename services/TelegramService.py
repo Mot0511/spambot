@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from telethon import TelegramClient
+from telethon.errors import MsgIdInvalidError
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 
 logger = logging.getLogger(__name__)
@@ -37,33 +38,37 @@ class TelegramService:
         """Отправляет комментарий под самым свежим постом канала."""
         channel = await self.client.get_entity(channel_link)
 
-        # get_messages возвращает посты от новых к старым — берём первый.
-        posts = [m for m in await self.client.get_messages(channel, limit=10) if m]
+        # get_messages возвращает посты от новых к старым — берём первые,
+        # пропуская service-сообщения (pinned, привязка группы и т.п.).
+        posts = [m for m in await self.client.get_messages(channel, limit=20) if m and not m.action][:5]
         if not posts:
             raise RuntimeError("Posts not found")
 
-        post = posts[0]
-        logger.info("The last post: %s", post.id)
+        last_error: Exception | None = None
 
-        result = await self.client(
-            GetDiscussionMessageRequest(
-                peer=channel,
-                msg_id=post.id
-            )
-        )
+        for post in posts:
+            logger.info("The last post: %s", post.id)
 
-        if not result.messages:
-            raise RuntimeError("Discussion not found")
+            try:
+                comment = await self.client.send_message(
+                    entity=channel,
+                    message=text,
+                    comment_to=post.id,
+                )
+            except MsgIdInvalidError as e:
+                # Пост удалён, скрыт или это не пост канала — идём к следующему.
+                last_error = e
+                logger.warning(
+                    "Пост %s в %s не принимает комментарии, пробуем следующий",
+                    post.id,
+                    channel_link,
+                )
+                continue
 
-        discussion_message = result.messages[0]
-        comment = await self.client.send_message(
-            entity=discussion_message.peer_id,
-            message=text,
-            reply_to=discussion_message.id
-        )
+            logger.info('Comment "%s" was sent to %s', text, channel_link)
+            return comment
 
-        logger.info('Comment "%s" was sent to %s', text, channel_link)
-        return comment
+        raise RuntimeError(f"Не удалось отправить комментарий в {channel_link}: {last_error}")
 
     async def broadcast(self, channels: list[dict], text: str) -> list[dict]:
         """Рассылает текст по всем каналам, поочерёдно комментируя их.

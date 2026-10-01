@@ -24,9 +24,9 @@ async def show_messages(message: Message, message_service):
     if not messages:
         await message.answer("Список пуст.")
         return
-    for msg in messages:
+    for i, msg in enumerate(messages):
         await message.answer(
-            f"{msg['id']}. {msg['text']}",
+            f"{i+1}. {msg['text']}",
             reply_markup=message_actions_kb(msg["id"]),
         )
 
