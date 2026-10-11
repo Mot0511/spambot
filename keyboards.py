@@ -45,7 +45,7 @@ def channel_delete_kb(channel_id: int) -> InlineKeyboardMarkup:
 
 
 def message_actions_kb(message_id: int) -> InlineKeyboardMarkup:
-    """Inline-клавиатура с кнопками рассылки и удаления текста рассылки."""
+    """Inline-клавиатура с кнопками рассылки, изменения и удаления текста рассылки."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -53,6 +53,12 @@ def message_actions_kb(message_id: int) -> InlineKeyboardMarkup:
                     text="📤 Разослать",
                     callback_data=f"broadcast:{message_id}",
                 ),
+                InlineKeyboardButton(
+                    text="✏️ Изменить",
+                    callback_data=f"edit_message:{message_id}",
+                ),
+            ],
+            [
                 InlineKeyboardButton(
                     text="🗑 Удалить из списка",
                     callback_data=f"del_message:{message_id}",

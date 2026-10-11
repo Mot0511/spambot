@@ -14,6 +14,10 @@ class AddMessageStates(StatesGroup):
     waiting_text = State()
 
 
+class EditMessageStates(StatesGroup):
+    waiting_text = State()
+
+
 # ----------------------------------------------------------------------
 # 📝 Список сообщений
 # ----------------------------------------------------------------------
@@ -94,6 +98,55 @@ async def delete_message(callback: CallbackQuery, message_service):
             f"⚠️ Ошибка удаления: {e}",
             show_alert=True,
         )
+
+
+# ----------------------------------------------------------------------
+# ✏️ Изменить сообщение
+# ----------------------------------------------------------------------
+
+@router.callback_query(F.data.startswith("edit_message:"))
+async def edit_message_start(callback: CallbackQuery, state: FSMContext, message_service):
+    message_id = int(callback.data.split(":")[1])
+    record = message_service.get_message(message_id)
+    if not record:
+        await callback.answer("Сообщение не найдено", show_alert=True)
+        return
+
+    await state.set_state(EditMessageStates.waiting_text)
+    await state.update_data(message_id=message_id)
+    await callback.answer()
+    await callback.message.answer(
+        f"Текущий текст:\n{record['text']}\n\n"
+        "Отправь новый вариант сообщения\n"
+        "Для отмены — /start"
+    )
+
+
+@router.message(EditMessageStates.waiting_text, F.text)
+async def edit_message_process(message: Message, state: FSMContext, message_service):
+    data = await state.get_data()
+    message_id = data["message_id"]
+    new_text = message.text.strip()
+    try:
+        updated = message_service.update_message(message_id, new_text)
+        if updated:
+            await message.answer(
+                "✅ Сообщение обновлено",
+                reply_markup=admin_keyboard(),
+            )
+        else:
+            await message.answer(
+                "⚠️ Сообщение не найдено",
+                reply_markup=admin_keyboard(),
+            )
+    except Exception as e:
+        logging.exception("Ошибка при изменении сообщения")
+        await message.answer(
+            f"⚠️ Не удалось изменить сообщение\n\n"
+            f"{e}"
+        )
+    finally:
+        await state.clear()
 
 
 # ----------------------------------------------------------------------

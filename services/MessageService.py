@@ -58,6 +58,16 @@ class MessageService:
             ).fetchone()
             return dict(row) if row else None
 
+    def update_message(self, message_id: int, text: str) -> bool:
+        """Обновляет текст сообщения по id. Возвращает True, если запись изменена."""
+        with self._connect() as conn:
+            cur = conn.execute(
+                "UPDATE messages SET text = ? WHERE id = ?",
+                (text, message_id),
+            )
+            conn.commit()
+            return cur.rowcount > 0
+
     def delete_message(self, message_id: int) -> bool:
         """Удаляет сообщение по id. Возвращает True, если запись удалена."""
         with self._connect() as conn:
